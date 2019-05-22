@@ -1,4 +1,5 @@
-import React, { Component } from 'react';
+import PropTypes from 'prop-types'
+import React, { Component } from 'react'
 import {
   Animated,
   DeviceEventEmitter,
@@ -9,12 +10,11 @@ import {
   Platform,
   TouchableWithoutFeedback,
   View,
-} from 'react-native';
-import PropTypes from 'prop-types';
-import * as animatable from 'react-native-animatable';
-import { initializeAnimations, buildAnimations } from './utils';
+} from 'react-native'
+import * as animatable from 'react-native-animatable'
 
-import styles from './index.style.js';
+import styles from './index.style.js'
+import { buildAnimations, initializeAnimations } from './utils'
 
 // Override default react-native-animatable animations
 initializeAnimations();
@@ -56,6 +56,10 @@ class ReactNativeModal extends Component {
       PropTypes.arrayOf(PropTypes.oneOf(['up', 'down', 'left', 'right'])),
       PropTypes.oneOf(['up', 'down', 'left', 'right']),
     ]),
+    onStartShouldSetPanResponder: PropTypes.func,
+    allowTapsInPanResponderArea: PropTypes.bool,
+    tapInPanResponderAreaThreshold: PropTypes.number,
+    onTappedInPanResponderArea: PropTypes.func,
     useNativeDriver: PropTypes.bool,
     style: PropTypes.any,
     scrollTo: PropTypes.func,
@@ -90,6 +94,10 @@ class ReactNativeModal extends Component {
     onModalWillShow: () => null,
     deviceHeight: null,
     deviceWidth: null,
+    onStartShouldSetPanResponder: null,
+    allowTapsInPanResponderArea: false,
+    tapInPanResponderAreaThreshold: 10,
+    onTappedInPanResponderArea: () => null,
     onModalHide: () => null,
     onModalWillHide: () => null,
     isVisible: false,
@@ -130,6 +138,7 @@ class ReactNativeModal extends Component {
   isTransitioning = false;
   inSwipeClosingState = false;
   currentSwipingDirection = null;
+  backdropPressPossible = true;
 
   constructor(props) {
     super(props);
@@ -225,10 +234,18 @@ class ReactNativeModal extends Component {
           return shouldSetPanResponder;
         }
       },
-      onStartShouldSetPanResponder: () => {
+      onStartShouldSetPanResponder: (evt, gestureState) => {
+        this.backdropPressPossible = true
         if (this.props.scrollTo && this.props.scrollOffset > 0) {
           return false; // user needs to be able to scroll content back up
         }
+
+        if (this.props.onStartShouldSetPanResponder !== null) {
+          if (!this.props.onStartShouldSetPanResponder(evt, gestureState)) {
+            return false
+          }
+        }
+
         if (this.props.onSwipeStart) {
           this.props.onSwipeStart();
         }
@@ -239,6 +256,10 @@ class ReactNativeModal extends Component {
         return true;
       },
       onPanResponderMove: (evt, gestureState) => {
+        if (Math.abs(gestureState.dx) > this.props.tapInPanResponderAreaThreshold ||
+            Math.abs(gestureState.dy) > this.props.tapInPanResponderAreaThreshold) {
+              this.backdropPressPossible = false
+        }
         // Using onStartShouldSetPanResponder we don't have any delta so we don't know
         // The direction to which the user is swiping until some move have been done
         if (!this.currentSwipingDirection) {
@@ -320,13 +341,25 @@ class ReactNativeModal extends Component {
 
         Animated.spring(this.state.pan, {
           toValue: { x: 0, y: 0 },
-          bounciness: 0,
+          bounciness: 5,
+          speed: 9,
         }).start();
         if (this.props.scrollOffset > this.props.scrollOffsetMax) {
           this.props.scrollTo({
             y: this.props.scrollOffsetMax,
             animated: true,
           });
+        }
+
+        if (
+          accDistance < this.props.tapInPanResponderAreaThreshold &&
+          (this.props.allowTapsInPanResponderArea !== null) &&
+          this.props.allowTapsInPanResponderArea &&
+          this.props.onTappedInPanResponderArea &&
+          this.backdropPressPossible
+        )  {
+          this.props.onTappedInPanResponderArea();
+          return
         }
       },
     });

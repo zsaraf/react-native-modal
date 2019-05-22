@@ -50,6 +50,10 @@ declare module "react-native-modal" {
     scrollOffsetMax?: number;
     scrollHorizontal?: boolean,
     supportedOrientations?: Orientation[];
+    onStartShouldSetPanResponder?: (e: GestureResponderEvent, gestureState: PanResponderGestureState) => boolean,
+    allowTapsInPanResponderArea?: boolean,
+    tapInPanResponderAreaThreshold?: number
+    onTappedInPanResponderArea?: () => void,
     onDismiss?: () => void;
     onShow?: () => void;
     hardwareAccelerated?: boolean;
